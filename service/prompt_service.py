@@ -29,7 +29,7 @@ class PromptServiceInterface:
         """
         pass
 
-    def update_prompt(self, prompt: PromptUpdate, user: Optional[User] = None) -> None:
+    def update_prompt(self, guid:str, prompt: PromptUpdate, user: Optional[User] = None) -> None:
         """
         Updates the content of an existing prompt.
 
@@ -39,6 +39,7 @@ class PromptServiceInterface:
         Raises:
             ConstraintViolationError: If the prompt data is invalid.
             PromptException: If an unexpected error occurs.
+            :param guid:
             :param prompt:
             :param user:
         """
@@ -162,7 +163,7 @@ class PromptService(PromptServiceInterface):
                 db.rollback_transaction()
                 raise PromptException("An unexpected error occurred while processing your request.") from e
 
-    def update_prompt(self, prompt: PromptUpdate, user: Optional[User] = None) -> None:
+    def update_prompt(self, guid: str, prompt: PromptUpdate, user: Optional[User] = None) -> None:
         try:
             prompt = PromptUpdate(**prompt.dict())
         except ValidationError as e:
@@ -171,7 +172,7 @@ class PromptService(PromptServiceInterface):
         with DatabaseContext() as db:
             try:
                 db.begin_transaction()
-                self.prompt_repository.update_prompt(prompt, user)
+                self.prompt_repository.update_prompt(guid, prompt, user)
                 db.commit_transaction()
             except PromptException as known_exc:
                 traceback.print_exc()

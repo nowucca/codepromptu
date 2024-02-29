@@ -24,10 +24,11 @@ def delete_prompt(guid: str,
 
 
 @router.put("/prompt/{guid}", status_code=204, summary="Update a prompt by GUID. Requires an admin user.")
-def update_prompt(prompt: PromptUpdate,
+def update_prompt(guid: str,
+                  prompt: PromptUpdate,
                   service: PromptServiceInterface = Depends(get_prompt_service),
                   user: User = Depends(require_admin_user)):
-    service.update_prompt(prompt, user)
+    service.update_prompt(guid, prompt, user)
     return {}  # Return an empty response for 204 status
 
 

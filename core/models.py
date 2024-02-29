@@ -11,12 +11,15 @@ class PromptCreate(BaseModel):
     tags: Optional[List[str]] = []
 
 
-class PromptUpdate(PromptCreate):
-    guid: str
+class PromptUpdate(BaseModel):
+    content: Optional[str] = None
+    display_name: Optional[str] = None
+    tags: Optional[List[str]] = []
 
 
 class Prompt(PromptUpdate):
     id: int
+    guid: str
     created_at: datetime
     updated_at: datetime
 

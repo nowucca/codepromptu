@@ -12,7 +12,7 @@ class PromptRepositoryInterface:
         # Implementation of the create-prompt use case
         pass
 
-    def update_prompt(self, prompt: PromptUpdate, user: Optional[User] = None) -> None:
+    def update_prompt(self, guid: str, prompt: PromptUpdate, user: Optional[User] = None) -> None:
         # Implementation of the update prompt use case
         pass
 
@@ -53,13 +53,43 @@ class MySQLPromptRepository(PromptRepositoryInterface):
         self._update_tags(prompt_guid, prompt.tags)
         return prompt_guid
 
-    def update_prompt(self, prompt: PromptUpdate, user: Optional[User] = None) -> None:
+    def update_prompt(self, guid: str, prompt: PromptUpdate, user: Optional[User] = None) -> None:
         db = get_current_db_context()
-        db.cursor.execute(
-            "UPDATE prompts SET content = %s, display_name = %s, author = %s WHERE guid = %s",
-            (prompt.content, prompt.display_name, user.username if user else None, prompt.guid)
-        )
-        self._update_tags(prompt.guid, prompt.tags)
+
+        # Base SQL query
+        sql = "UPDATE prompts "
+
+        # Parameters for SQL query
+        params = []
+
+        setting_a_field = False
+        # Iterate over the fields of the PromptUpdate object
+        for field in prompt.dict(exclude_unset=True):
+
+            # Skip the 'guid' and 'tags' fields
+            if field not in ['guid', 'tags'] and getattr(prompt, field) is not None:
+                # If this is the first field being updated, add the SET keyword
+                if not setting_a_field:
+                    sql += "SET "
+                    setting_a_field = True
+                sql += f"{field} = %s, "
+                params.append(getattr(prompt, field))
+
+        if not setting_a_field and prompt.tags is None:
+            raise core.exceptions.DataValidationError("No fields to update")
+
+        if setting_a_field:
+            # Remove the trailing comma and space
+            sql = sql.rstrip(', ')
+
+            sql += " WHERE guid = %s"
+            params.append(guid)
+
+            db.cursor.execute(sql, params)
+
+        # Update the tags if they are provided
+        if prompt.tags is not None:
+            self._update_tags(guid, prompt.tags)
 
     def delete_prompt(self, guid: str, user: Optional[User] = None) -> None:
         db = get_current_db_context()
