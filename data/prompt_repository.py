@@ -50,7 +50,7 @@ class MySQLPromptRepository(PromptRepositoryInterface):
             "INSERT INTO prompts (guid, content, display_name, author) VALUES (%s, %s, %s, %s)",
             (prompt_guid, prompt.content, prompt.display_name, author.username if author else None)
         )
-        self._update_tags(prompt_guid, prompt.tags)
+        self._update_tags(prompt_guid, prompt.tags, author)
         return prompt_guid
 
     def update_prompt(self, guid: str, prompt: PromptUpdate, user: Optional[User] = None) -> None:
@@ -89,7 +89,7 @@ class MySQLPromptRepository(PromptRepositoryInterface):
 
         # Update the tags if they are provided
         if prompt.tags is not None:
-            self._update_tags(guid, prompt.tags)
+            self._update_tags(guid, prompt.tags, user)
 
     def delete_prompt(self, guid: str, user: Optional[User] = None) -> None:
         db = get_current_db_context()
@@ -98,7 +98,7 @@ class MySQLPromptRepository(PromptRepositoryInterface):
             "DELETE FROM prompts WHERE guid = %s",
             (guid,)
         )
-        self.remove_all_tags_from_prompt(guid)
+        self.remove_all_tags_from_prompt(guid, user)
 
     @staticmethod
     def _check_prompt_ownership(guid, user):
@@ -269,15 +269,16 @@ class MySQLPromptRepository(PromptRepositoryInterface):
         results = db.cursor.fetchall()
         return [Prompt(**self.make_result_dict(result)) for result in results]
 
-    def _update_tags(self, guid: str, tags: List[str]) -> None:
+    def _update_tags(self, guid: str, tags: List[str], user: Optional[User] = None) -> None:
+        self._check_prompt_ownership(guid, user)
         # Remove all existing tags
-        self.remove_all_tags_from_prompt(guid)
+        self.remove_all_tags_from_prompt(guid, user)
         # Add new tags
         for tag in tags:
-            self.add_tag_to_prompt(guid, tag)
+            self.add_tag_to_prompt(guid, tag, user)
 
-    @staticmethod
-    def remove_all_tags_from_prompt(guid: str, user: Optional[User] = None) -> None:
+    def remove_all_tags_from_prompt(self, guid: str, user: Optional[User] = None) -> None:
+        # Precondition: self._check_prompt_ownership(guid, user)
         db = get_current_db_context()
         params = [guid]
         remove_sql = """
