@@ -13,7 +13,7 @@ config = {
     'host': os.getenv('DB_HOST'),
     'port': os.getenv('DB_PORT'),
     'database': os.getenv('DB_NAME'),
-    'raise_on_warnings': True
+    'raise_on_warnings': True,
 }
 
 

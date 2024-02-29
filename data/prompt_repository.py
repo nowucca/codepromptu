@@ -109,7 +109,25 @@ class MySQLPromptRepository(PromptRepositoryInterface):
         result = db.cursor.fetchone()
         if result is None:
             raise core.exceptions.RecordNotFoundError("Prompt not found")
-        return Prompt(*result)  # type: ignore
+
+        # Access the result via column names
+        result_dict = self.make_result_dict(result)
+
+        return Prompt(**result_dict)
+
+    @staticmethod
+    def make_result_dict(result):
+        result_dict = {
+            "id": result["id"],
+            "content": result["content"],
+            "display_name": result["display_name"],
+            "author": result["author"],
+            "tags": result["tags"].split(',') if result["tags"] else [],  # Split tags by comma
+            "guid": result["guid"],
+            "created_at": result["created_at"],
+            "updated_at": result["updated_at"],
+        }
+        return result_dict
 
     def get_prompt_by_name(self, name: str, user: Optional[User] = None) -> Prompt:
         db = get_current_db_context()
@@ -139,7 +157,8 @@ class MySQLPromptRepository(PromptRepositoryInterface):
         result = db.cursor.fetchone()
         if result is None:
             raise core.exceptions.RecordNotFoundError("Prompt not found")
-        return Prompt(*result)  # type: ignore
+        result_dict = self.make_result_dict(result)
+        return Prompt(**result_dict)
 
     def add_tag_to_prompt(self, guid: str, tag: str, user: Optional[User] = None) -> None:
         db = get_current_db_context()
@@ -218,7 +237,7 @@ class MySQLPromptRepository(PromptRepositoryInterface):
 
         db.cursor.execute(sql, params)
         results = db.cursor.fetchall()
-        return [Prompt(*result) for result in results]  # type: ignore
+        return [Prompt(**self.make_result_dict(result)) for result in results]
 
     def _update_tags(self, guid: str, tags: List[str]) -> None:
         # Remove all existing tags
