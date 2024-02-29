@@ -51,7 +51,7 @@ class MySQLPromptRepository(PromptRepositoryInterface):
             (prompt_guid, prompt.content, prompt.display_name, author.username if author else None)
         )
         self._update_tags(prompt_guid, prompt.tags)
-        return prompt.guid
+        return prompt_guid
 
     def update_prompt(self, prompt: PromptUpdate, user: Optional[User] = None) -> None:
         db = get_current_db_context()
@@ -80,18 +80,32 @@ class MySQLPromptRepository(PromptRepositoryInterface):
         if author != (user.username if user else None):
             raise UnauthorizedError(f"Attempting to update a prompt that does not belong to the user or is not NULL.")
 
+
     def get_prompt(self, guid: str, user: Optional[User] = None) -> Prompt:
         db = get_current_db_context()
 
-        db.cursor.execute("""
+        # Base SQL query
+        sql = """
             SELECT prompts.*, GROUP_CONCAT(tags.tag) as tags 
-              FROM prompts 
-              LEFT JOIN prompt_tags ON prompts.id = prompt_tags.prompt_id 
-              LEFT JOIN tags ON prompt_tags.tag_id = tags.id 
-              WHERE prompts.guid = %s 
-                AND prompts.author = %s
-              GROUP BY prompts.id
-        """, (guid, user.username if user else None))
+            FROM prompts 
+            LEFT JOIN prompt_tags ON prompts.id = prompt_tags.prompt_id 
+            LEFT JOIN tags ON prompt_tags.tag_id = tags.id 
+            WHERE prompts.guid = %s
+        """
+
+        # Parameters for SQL query
+        params = [guid]
+
+        # If user is not None, add the author clause and parameter
+        if user is not None:
+            sql += " AND prompts.author = %s"
+            params.append(user.username)
+        else:
+            sql += " AND prompts.author IS NULL"
+
+        sql += " GROUP BY prompts.id"
+
+        db.cursor.execute(sql, params)
         result = db.cursor.fetchone()
         if result is None:
             raise core.exceptions.RecordNotFoundError("Prompt not found")
@@ -100,15 +114,28 @@ class MySQLPromptRepository(PromptRepositoryInterface):
     def get_prompt_by_name(self, name: str, user: Optional[User] = None) -> Prompt:
         db = get_current_db_context()
 
-        db.cursor.execute("""
-                    SELECT prompts.*, GROUP_CONCAT(tags.tag) as tags 
-                      FROM prompts 
-                      LEFT JOIN prompt_tags ON prompts.id = prompt_tags.prompt_id 
-                      LEFT JOIN tags ON prompt_tags.tag_id = tags.id 
-                      WHERE prompts.display_name = %s 
-                        AND prompts.author = %s
-                      GROUP BY prompts.id
-                """, (name, user.username if user else None))
+        # Base SQL query
+        sql = """
+            SELECT prompts.*, GROUP_CONCAT(tags.tag) as tags
+            FROM prompts
+            LEFT JOIN prompt_tags ON prompts.id = prompt_tags.prompt_id
+            LEFT JOIN tags ON prompt_tags.tag_id = tags.id
+            WHERE prompts.display_name = %s
+        """
+
+        # Parameters for SQL query
+        params = [name]
+
+        # If user is not None, add the author clause and parameter
+        if user is not None:
+            sql += " AND prompts.author = %s"
+            params.append(user.username)
+        else:
+            sql += " AND prompts.author IS NULL"
+
+        sql += " GROUP BY prompts.id"
+
+        db.cursor.execute(sql, params)
         result = db.cursor.fetchone()
         if result is None:
             raise core.exceptions.RecordNotFoundError("Prompt not found")
@@ -117,36 +144,79 @@ class MySQLPromptRepository(PromptRepositoryInterface):
     def add_tag_to_prompt(self, guid: str, tag: str, user: Optional[User] = None) -> None:
         db = get_current_db_context()
         db.cursor.execute("""
-            INSERT INTO tags (tag) VALUES (%s) ON DUPLICATE KEY UPDATE tag = VALUES(tag)
+            INSERT INTO tags (tag) 
+            VALUES (%s) AS new 
+            ON DUPLICATE KEY UPDATE tag = new.tag
         """, (tag,))
-        db.cursor.execute("""
+
+        # Base SQL query
+        sql = """
             INSERT INTO prompt_tags (prompt_id, tag_id) 
               SELECT prompts.id, tags.id 
                 FROM prompts, tags 
                WHERE prompts.guid = %s AND tags.tag = %s
-                 AND prompts.author = %s
-        """, (guid, tag, user.username if user else None))
+        """
+
+        # Parameters for SQL query
+        params = [guid, tag]
+
+        # If user is not None, add the author clause and parameter
+        if user is not None:
+            sql += " AND prompts.author = %s"
+            params.append(user.username)
+        else:
+            sql += " AND prompts.author IS NULL"
+
+        db.cursor.execute(sql, params)
 
     def remove_tag_from_prompt(self, guid: str, tag: str, user: Optional[User] = None) -> None:
         db = get_current_db_context()
-        db.cursor.execute("""
+
+        # Base SQL query
+        sql = """
             DELETE prompt_tags 
               FROM prompt_tags 
              INNER JOIN prompts ON prompt_tags.prompt_id = prompts.id 
              INNER JOIN tags ON prompt_tags.tag_id = tags.id 
-             WHERE prompts.guid = %s AND tags.tag = %s AND prompts.author = %s",
-        """, (guid, tag, user.username if user else None))
+             WHERE prompts.guid = %s AND tags.tag = %s
+        """
+
+        # Parameters for SQL query
+        params = [guid, tag]
+
+        # If user is not None, add the author clause and parameter
+        if user is not None:
+            sql += " AND prompts.author = %s"
+            params.append(user.username)
+        else:
+            sql += " AND prompts.author IS NULL"
+
+        db.cursor.execute(sql, params)
 
     def list_prompts(self, user: Optional[User] = None) -> List[Prompt]:
         db = get_current_db_context()
-        db.cursor.execute("""
+
+        # Base SQL query
+        sql = """
             SELECT prompts.*, GROUP_CONCAT(tags.tag) as tags 
-              FROM prompts 
-              LEFT JOIN prompt_tags ON prompts.id = prompt_tags.prompt_id 
-              LEFT JOIN tags ON prompt_tags.tag_id = tags.id 
-              WHERE prompts.author = %s
-              GROUP BY prompts.id
-        """, (user.username if user else None))
+            FROM prompts 
+            LEFT JOIN prompt_tags ON prompts.id = prompt_tags.prompt_id 
+            LEFT JOIN tags ON prompt_tags.tag_id = tags.id 
+        """
+
+        # Parameters for SQL query
+        params = []
+
+        # If user is not None, add the author clause and parameter
+        if user is not None:
+            sql += " WHERE prompts.author = %s"
+            params.append(user.username)
+        else:
+            sql += " WHERE prompts.author IS NULL"
+
+        sql += " GROUP BY prompts.id"
+
+        db.cursor.execute(sql, params)
         results = db.cursor.fetchall()
         return [Prompt(*result) for result in results]  # type: ignore
 
@@ -160,10 +230,17 @@ class MySQLPromptRepository(PromptRepositoryInterface):
     @staticmethod
     def remove_all_tags_from_prompt(guid: str, user: Optional[User] = None) -> None:
         db = get_current_db_context()
-        db.cursor.execute("""
+        params = [guid]
+        remove_sql = """
             DELETE prompt_tags 
             FROM prompt_tags 
             INNER JOIN prompts ON prompt_tags.prompt_id = prompts.id 
             WHERE prompts.guid = %s
-              AND prompts.author = %s
-        """, (guid, user.username if user else None))
+        """
+        if user:
+            remove_sql += " AND prompts.author = %s"
+            params.append(user.username)
+        else:
+            remove_sql += " AND prompts.author IS NULL"
+
+        db.cursor.execute(remove_sql, params)
