@@ -1,0 +1,7 @@
+CREATE DATABASE IF NOT EXISTS codepromptu;
+
+CREATE USER IF NOT EXISTS 'codepromptu'@'localhost' IDENTIFIED BY 'codepromptu';
+
+GRANT ALL PRIVILEGES ON codepromptu.* TO 'codepromptu'@'localhost';
+
+FLUSH PRIVILEGES;
