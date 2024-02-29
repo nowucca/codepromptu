@@ -28,7 +28,7 @@ class MySQLUserRepository(UserRepositoryInterface):
             if result is not None:
                 # Assuming the User model has 'username' and 'password' attributes
                 # and the 'roster' table has 'user' and 'password' columns
-                return User(username=result['user'], password=result['password'])
+                return User(username=result['user'], password=result['password'], class_key=result['class_key'])
             else:
                 return None
         except Error:

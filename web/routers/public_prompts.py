@@ -12,15 +12,15 @@ router = APIRouter()
 @router.post("/prompt/", status_code=201, summary="Add a new prompt. Requires an admin user.")
 async def add_prompt(prompt: PromptCreate,
                      service: PromptServiceInterface = Depends(get_prompt_service),
-                     user: User = Depends(require_admin_user)):
-    return service.create_prompt(prompt, user)
+                     _user: User = Depends(require_admin_user)):
+    return service.create_prompt(prompt)
 
 
 @router.delete("/prompt/{guid}", status_code=204, summary="Delete a prompt by GUID. Requires an admin user.")
 def delete_prompt(guid: str,
                   service: PromptServiceInterface = Depends(get_prompt_service),
-                  user: User = Depends(require_admin_user)):
-    service.delete_prompt(guid, user)
+                  _user: User = Depends(require_admin_user)):
+    service.delete_prompt(guid)
     return {}  # Return an empty response for 204 status
 
 
@@ -28,8 +28,8 @@ def delete_prompt(guid: str,
 def update_prompt(guid: str,
                   prompt: PromptUpdate,
                   service: PromptServiceInterface = Depends(get_prompt_service),
-                  user: User = Depends(require_admin_user)):
-    service.update_prompt(guid, prompt, user)
+                  _user: User = Depends(require_admin_user)):
+    service.update_prompt(guid, prompt)
     return {}  # Return an empty response for 204 status
 
 
@@ -59,8 +59,8 @@ def list_prompts(skip: int = 0, limit: int = 10, service: PromptServiceInterface
              summary="Add a tag to a prompt by GUID. Requires an admin user.")
 def add_tag_to_prompt(guid: str, tag: str,
                       service: PromptServiceInterface = Depends(get_prompt_service),
-                      user: User = Depends(require_admin_user)):
-    service.add_tag_to_prompt(guid, tag, user)
+                      _user: User = Depends(require_admin_user)):
+    service.add_tag_to_prompt(guid, tag)
     return {}  # Return an empty response for 204 status
 
 
@@ -68,6 +68,6 @@ def add_tag_to_prompt(guid: str, tag: str,
                summary="Remove a tag from a prompt by GUID. Requires an admin user.")
 def remove_tag_from_prompt(guid: str, tag: str,
                            service: PromptServiceInterface = Depends(get_prompt_service),
-                           user: User = Depends(require_admin_user)):
-    service.remove_tag_from_prompt(guid, tag, user)
+                           _user: User = Depends(require_admin_user)):
+    service.remove_tag_from_prompt(guid, tag)
     return {}  # Return an empty response for 204 status
