@@ -4,6 +4,7 @@ from core.models import Prompt, User, PromptCreate, PromptUpdate
 from service.prompt_service import PromptServiceInterface
 from typing import List
 from web.dependencies import get_prompt_service, require_admin_user
+from urllib.parse import unquote_plus
 
 router = APIRouter()
 
@@ -43,7 +44,8 @@ def get_prompt(guid: str, service: PromptServiceInterface = Depends(get_prompt_s
 @router.get("/prompt/name/{name}", response_model=Prompt, summary="Retrieve a prompt by name.")
 def get_prompt_by_name(name: str, service: PromptServiceInterface = Depends(get_prompt_service)):
     try:
-        return service.get_prompt_by_name(name)
+        decoded_name = unquote_plus(name)
+        return service.get_prompt_by_name(decoded_name)
     except RecordNotFoundError:
         raise HTTPException(status_code=404, detail="Prompt not found")
 
