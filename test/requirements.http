@@ -1,0 +1,66 @@
+### Test Add New Public Prompt
+POST http://{{base_url}}/public/prompt/
+Authorization: Basic {{basic_credential}}
+Content-Type: application/json
+
+{
+  "display_name": "Learn and Understand a Product",
+  "tags": ["ducky", "requirements"],
+  "content": "Forget all previous instructions and context.  \n\nYou job is to learn and understand the following text about a product.\n```{product_name} is an AI-powered coding assistant tailored for software developers and learners. \n\nIts primary function is to facilitate the learning process about various software topics. \n\n{product_name} offers a quick chat feature that serves to answer questions regarding coding issues. \n\nFurthermore, its blueprint feature acts as a knowledge repository, enabling users to \ngenerate specific pre-planned artifacts such as schemas, types, and APIs.\n```\nAcknowledge you have understood the product by giving a terse 1 sentence summary or acknowledgement. "
+}
+
+###
+POST http://{{base_url}}/public/prompt/
+Authorization: Basic {{basic_credential}}
+Content-Type: application/json
+
+{
+  "display_name": "Implementation Plan",
+  "tags": ["ducky", "requirements"],
+  "content": "\n    Break the implementation phase of Finfriend into smaller modules, to be developed iteratively.\n\n    Format this description as a markdown document.\n    "
+}
+
+###
+POST http://{{base_url}}/public/prompt/
+Authorization: Basic {{basic_credential}}
+Content-Type: application/json
+
+{
+  "display_name": "Business Problem Prompt",
+  "tags": ["ducky", "requirements"],
+  "content": "\nWrite a description of Finfriend following this template:\n```\nSituation\n\nDescribe the background, context, and environment.\n\nProblem\n\nDescribe the business problems or opportunities as you now understand them.\n\nImplication\n\nDescribe the likely results if the problem isn’t solved.\n\nBenefit\n\nState the business value of solving the problem.\n\nVision\n\nDescribe what the desired future state would look like.\n```\n\nFormat this description as a markdown document.\n"
+}
+
+###
+POST http://{{base_url}}/public/prompt/
+Authorization: Basic {{basic_credential}}
+Content-Type: application/json
+
+{
+  "display_name": "Vision Statement Prompt",
+  "tags": ["ducky", "requirements"],
+  "content": "\nWrite a vision statement for Finfriend using the following template:\nFor\n\n[target customers]\n\nWho\n\n[statement of the business need or opportunity]\n\nThe\n\n[name of the product or project]\n\nIs\n\n[type of product or project]\n\nThat\n\n[major product capabilities; core benefits it will provide; compelling reason to buy the product or undertake the project]\n\nUnlike\n\n[current business reality, alternative products, or the competition]\n"
+}
+
+###
+POST http://{{base_url}}/public/prompt/
+Authorization: Basic {{basic_credential}}
+Content-Type: application/json
+
+{
+  "display_name": "Ecosystem Map Prompt",
+  "tags": ["ducky", "requirements"],
+  "content": "\n    Write a linear ecosystem map for Finfriend (Beatty and Chen 2012).\n    Include multiple internal and external actors affecting Finfriend.\n\n    Format this description as a markdown document.\n"
+}
+
+###
+POST http://{{base_url}}/public/prompt/
+Authorization: Basic {{basic_credential}}
+Content-Type: application/json
+
+{
+  "display_name": "Responsibility Matrix Prompt",
+  "tags": ["ducky", "requirements"],
+  "content": "\n    Identify stakeholders by name and build a RACI matrix for Finfriend\n    showing which stakeholders are Responsible, Accountable, Consulted, or Informed (Morris 2022).\n\n    Think for a minute, and break the implementation phase of Finfriend into smaller modules,\n    to be developed iteratively, called the implementation plan.  Output the titled modules.\n\n    Each cell in the matrix MAY be labelled with a subset of labels \"R\",\"A\",\"C\",or \"I\".\n    Make sure there are blank cells - not every stakeholder is involved in every module.\n    There should be a \"A\" accoutnable on each row.\n    If necessary develop more detailed list of tasks or stakeholders.\n\n    The columns of the matrix MUST be labelled with the stakeholder names.\n    The rows of the matrix MUST be labelled with the module titles from the implementation plan.\n\n    Format this description as a markdown document.\n"
+}
+}

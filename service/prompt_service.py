@@ -4,7 +4,7 @@ from typing import List, Optional
 
 from pydantic import ValidationError
 
-from core.exceptions import PromptException, ConstraintViolationError
+from core.exceptions import PromptException, ConstraintViolationError, DataValidationError
 from core.models import Prompt, PromptCreate, PromptUpdate, User
 from data import DatabaseContext
 from data.prompt_repository import PromptRepositoryInterface
@@ -137,6 +137,21 @@ class PromptServiceInterface:
         """
         pass
 
+    def list_prompts_by_tags(self, tags: str, user: Optional[User] = None) -> List[Prompt]:
+        """
+        Retrieves all prompts that have at least one of the tags in the provided list.
+        (returns public prompts if there is no user, or private if there is a user provided)
+
+        Args:
+            tags Comma separated list of tags to filter by.
+
+        Returns:
+            List[Prompt]: A list of all prompts that have at least one of the tags in the provided list.
+
+        Raises:
+            PromptException: If an unexpected error occurs.
+        """
+        pass
 
 class PromptService(PromptServiceInterface):
     def __init__(self, prompt_repository: PromptRepositoryInterface):
@@ -254,6 +269,22 @@ class PromptService(PromptServiceInterface):
         with DatabaseContext():
             try:
                 return self.prompt_repository.list_prompts(user)
+            except PromptException as known_exc:
+                traceback.print_exc()
+                raise known_exc
+            except Exception as e:
+                traceback.print_exc()
+                raise PromptException("An unexpected error occurred while processing your request.") from e
+
+    def list_prompts_by_tags(self, tags: str, user: Optional[User] = None) -> List[Prompt]:
+        with DatabaseContext():
+            try:
+                tags_list = tags.split(',')
+
+                if not tags_list:
+                    raise DataValidationError("No tags provided.")
+
+                return self.prompt_repository.list_prompts_by_tags(tags_list, user)
             except PromptException as known_exc:
                 traceback.print_exc()
                 raise known_exc

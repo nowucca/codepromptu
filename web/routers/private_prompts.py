@@ -1,4 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.params import Query
+
 from core.exceptions import RecordNotFoundError
 from core.models import Prompt, User, PromptCreate, PromptUpdate
 from service.prompt_service import PromptServiceInterface
@@ -58,7 +60,12 @@ def list_prompts(skip: int = 0, limit: int = 10,
                  user: User = Depends(require_current_user)):
     return service.list_prompts(user)[skip: skip + limit]
 
-
+@router.get("/prompt/tags/", response_model=List[Prompt], summary="List Private Prompts by Tag")
+async def list_prompts_by_tag(tags: str = Query("", title="Tags", description="Comma-separated list of tags to search for"),
+                             service: PromptServiceInterface = Depends(get_prompt_service),
+                             user: User = Depends(require_current_user)):
+    list = service.list_prompts_by_tags(tags, user)
+    return list
 @router.post("/prompt/{guid}/tag/{tag}", status_code=204,
              summary="Add a tag to a private prompt by GUID. Requires the owner of the prompt.")
 def add_tag_to_prompt(guid: str, tag: str,

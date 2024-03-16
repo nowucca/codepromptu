@@ -39,7 +39,9 @@ class PromptRepositoryInterface:
     def list_prompts(self, user: Optional[User] = None) -> List[Prompt]:
         # Implementation of the list all public prompts use case
         pass
-
+    def list_prompts_by_tags(self, tags_list: List[str], user: Optional[User] = None) -> List[Prompt]:
+      # Implementation of the list all prompts use case by tags
+        pass
 
 class MySQLPromptRepository(PromptRepositoryInterface):
 
@@ -262,6 +264,34 @@ class MySQLPromptRepository(PromptRepositoryInterface):
             params.append(user.username)
         else:
             sql += " WHERE prompts.author IS NULL"
+
+        sql += " GROUP BY prompts.id"
+
+        db.cursor.execute(sql, params)
+        results = db.cursor.fetchall()
+        return [Prompt(**self.make_result_dict(result)) for result in results]
+
+    def list_prompts_by_tags(self, tags_list: List[str], user: Optional[User] = None) -> List[Prompt]:
+        db = get_current_db_context()
+
+        # Base SQL query
+        sql = """
+            SELECT prompts.*, GROUP_CONCAT(tags.tag) as tags
+            FROM prompts
+            LEFT JOIN prompt_tags ON prompts.id = prompt_tags.prompt_id
+            LEFT JOIN tags ON prompt_tags.tag_id = tags.id
+            WHERE tags.tag IN (%s)
+        """ % ', '.join(['%s'] * len(tags_list))
+
+        # Parameters for SQL query
+        params = tags_list
+
+        # If user is not None, add the author clause and parameter
+        if user is not None:
+            sql += " AND prompts.author = %s"
+            params.append(user.username)
+        else:
+            sql += " AND prompts.author IS NULL"
 
         sql += " GROUP BY prompts.id"
 
