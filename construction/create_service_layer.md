@@ -1,4 +1,4 @@
-Lets build the service layer for the following system and database schema.
+ Lets build the service layer for the following system and database schema.
 Let's use the repository pattern with interfaces, models, and exceptions.
 
 The system description is as follows:

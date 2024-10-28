@@ -128,7 +128,8 @@ class MySQLPromptRepository(PromptRepositoryInterface):
         # Parameters for SQL query
         params = [guid]
 
-        # If user is not None, add the author clause and parameter
+        # If user is not None, add the author clause and parameter.
+        # Also allow public prompts with NULL author to be returned.
         if user is not None:
             sql += " AND prompts.author = %s"
             params.append(user.username)
