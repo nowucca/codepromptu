@@ -1,0 +1,25 @@
+### Top Engineering Risks to Surface Early — and How to Mitigate Them
+
+| #      | Risk Area                                       | Why It Matters (per PRD)                                                                                                       | Mitigation Tactics                                                                                                                                                             |
+| ------ | ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **1**  | **Template & Variable Explosion**               | Prompt-storage must handle versioning + forking **and** parameterised holes. Schema creep can break search, lineage, and SDKs. | *Up-front schema design* (Step 1 of plan) with reserved JSON for `template`, `vars`, `defaults`, plus a strict migration policy. Validate variable sets via JSON Schema in CI. |
+| **2**  | **Prompt-ID Integrity**                         | Tracking usage/eval hinges on a stable ID. Hash fall-backs or ad-hoc IDs risk collisions and orphaned metrics.                 | Central “ID allocator” service or UUIDv7; prohibit client-side ID fabrication. Build a reconciliation job to merge accidental dupes.                                           |
+| **3**  | **Provider API Drift & Rate Limits**            | OpenAI/Anthropic change endpoints, quotas, cost models. A hard-coded proxy or SDK breaks.                                      | Adapter pattern around provider APIs; contract tests that hit staging endpoints nightly. Config-driven rate-limit ceilings with alerting.                                      |
+| **4**  | **Latency & Throughput Hit from Vector Search** | Semantic search is on the hot path for IDE look-ups and runtime agents. Poor indexing strategy → slow dev UX.                  | Benchmark two vector DBs early; pre-compute embeddings; consider HNSW with RAM cache; async batch re-indexing.                                                                 |
+| **5**  | **Streaming Proxy Complexity**                  | If you proxy streaming chat completions, mishandled back-pressure or timeouts can stall clients.                               | Use HTTP/2 or raw WebSockets with incremental flush; implement timeout + resume; load-test with >100 concurrent streams.                                                       |
+| **6**  | **Sensitive-Content Logging**                   | Capturing full prompts/responses may violate privacy or contract terms.                                                        | Configurable redaction: plaintext, “partial mask,” or encrypted blob. Make log level per team/environment.                                                                     |
+| **7**  | **Cross-Team Ownership Gaps**                   | PRD assigns a team owner per prompt, but churn or mergers can orphan prompts, breaking updates and “crossref” links.           | Automated “owner ping” cron: prompts w/ no updates + inactive owner trigger email / slack to product owner. Provide CLI to bulk-re-assign.                                     |
+| **8**  | **Cost & Token Accounting Drift**               | Mis-counted tokens → budget over-run, incorrect success metrics.                                                               | Single source of truth: proxy tallies usage from provider response; cross-check with provider invoices nightly.                                                                |
+| **9**  | **SDK & Plugin Fragmentation**                  | IDE, Slack, infra agents may fall behind spec—duplicate logic, auth, telemetry.                                                | Versioned SDKs + thin REST fallback; publish semantic-versioned changelog; CI matrix tests each plugin against latest server.                                                  |
+| **10** | **Ops Runbook Gap**                             | SRE must diagnose prompt latency spikes and vector-DB failures; runbooks lag architecture.                                     | Integrate runbook docs into PR review checklist; simulate one failover before going beta; attach runbook links to Grafana alerts.                                              |
+
+---
+
+#### Immediate Next Steps
+
+1. **Risk Register** — copy this table into `/construction/risk-log.md`; add owner + likelihood/impact columns.
+2. **P0 Experiments** — spike streaming proxy vs. direct SDK to gauge latency hit (Risks 4+5).
+3. **Security Review** — draft data-classification matrix for prompt logs (Risk 6).
+4. **Provider Contract Tests** — set up nightly OpenAI + Anthropic smoke runs (Risk 3).
+
+Addressing these early keeps CodePromptu’s MVP lean while protecting against the most likely derailers called out by the PRD.
