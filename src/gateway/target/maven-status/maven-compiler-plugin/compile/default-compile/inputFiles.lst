@@ -1,0 +1,5 @@
+/Users/satkinson/Work/constellize/book/codepromptu/src/gateway/src/main/java/com/codepromptu/gateway/GatewayApplication.java
+/Users/satkinson/Work/constellize/book/codepromptu/src/gateway/src/main/java/com/codepromptu/gateway/config/SecurityConfig.java
+/Users/satkinson/Work/constellize/book/codepromptu/src/gateway/src/main/java/com/codepromptu/gateway/controller/HealthController.java
+/Users/satkinson/Work/constellize/book/codepromptu/src/gateway/src/main/java/com/codepromptu/gateway/filter/RateLimitingFilter.java
+/Users/satkinson/Work/constellize/book/codepromptu/src/gateway/src/main/java/com/codepromptu/gateway/filter/RequestLoggingFilter.java

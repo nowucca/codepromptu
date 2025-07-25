@@ -4,17 +4,18 @@
 
 This design captures the zero-touch prompt capture and template extraction pipeline at the heart of CodePromptu. It sits transparently between clients and LLM endpoints, detecting, classifying, and storing every prompt and its variables without any client modifications.
 
-### 2. Capture Proxy
+### 2. API Gateway & Proxy
 
-**Role**: Acts as a reverse‑proxy for all LLM API calls.
+**Role**: Acts as an API gateway that clients connect to via base URL configuration while maintaining their own API keys.
 
-* **DNS / Hosts override**: Redirect `api.openai.com`, `api.anthropic.com`, etc. to the proxy.
-* **TLS termination + passthrough**: Proxy terminates TLS via a private CA, inspects payloads, then re-encrypts outbound.
+* **Client Integration**: Clients configure their LLM libraries to use CodePromptu's base URL (e.g., `https://api.codepromptu.com/v1/`) instead of direct provider URLs.
+* **API Key Pass-through**: Clients continue using their own provider API keys; CodePromptu passes these through to the appropriate LLM provider.
 * **Request/Response interception**:
 
-  1. Receive client request (prompt payload).
-  2. Forward to real LLM API.
-  3. Capture and return the response seamlessly.
+  1. Receive client request with client's provider API key.
+  2. Capture prompt payload for analysis.
+  3. Forward to appropriate LLM provider using the client's API key.
+  4. Capture and return the response seamlessly.
 
 ### 3. Prompt Embedding & Reuse Detection
 

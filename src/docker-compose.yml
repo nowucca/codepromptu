@@ -1,0 +1,236 @@
+version: '3.8'
+
+services:
+  # PostgreSQL with pgvector extension
+  database:
+    image: pgvector/pgvector:pg15
+    container_name: codepromptu-database
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=codepromptu
+      - POSTGRES_USER=codepromptu_user
+      - POSTGRES_PASSWORD=codepromptu_pass
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U codepromptu_user -d codepromptu"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - codepromptu-network
+
+  # Redis Cache
+  cache:
+    image: redis:7-alpine
+    container_name: codepromptu-cache
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - codepromptu-network
+
+  # Configuration Server - Spring Cloud Config
+  config:
+    build:
+      context: ./config
+      dockerfile: Dockerfile
+    container_name: codepromptu-config
+    ports:
+      - "8888:8888"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+    volumes:
+      - ./config-repo:/config-repo
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8888/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - codepromptu-network
+
+  # API Gateway - Spring Cloud Gateway
+  gateway:
+    build:
+      context: ./gateway
+      dockerfile: Dockerfile
+    container_name: codepromptu-gateway
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/codepromptu
+      - SPRING_DATASOURCE_USERNAME=codepromptu_user
+      - SPRING_DATASOURCE_PASSWORD=codepromptu_pass
+      - SPRING_REDIS_HOST=cache
+      - SPRING_REDIS_PORT=6379
+      - CONFIG_SERVER_URI=http://config:8888
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+    command: ["sh", "-c", "java -Dspring.cloud.config.uri=http://config:8888 -jar app.jar"]
+    depends_on:
+      database:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      config:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - codepromptu-network
+
+  # Prompt Processing Service - Spring AI
+  # processor:
+  #   build:
+  #     context: ./processor
+  #     dockerfile: Dockerfile
+  #   container_name: codepromptu-processor
+  #   environment:
+  #     - SPRING_PROFILES_ACTIVE=docker
+  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/codepromptu
+  #     - SPRING_DATASOURCE_USERNAME=codepromptu_user
+  #     - SPRING_DATASOURCE_PASSWORD=codepromptu_pass
+  #     - SPRING_REDIS_HOST=cache
+  #     - SPRING_REDIS_PORT=6379
+  #     - CONFIG_SERVER_URI=http://config:8888
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+  #   depends_on:
+  #     database:
+  #       condition: service_healthy
+  #     cache:
+  #       condition: service_healthy
+  #     config:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8082/actuator/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   networks:
+  #     - codepromptu-network
+
+  # Web API Service - Spring Boot REST
+  # api:
+  #   build:
+  #     context: ./api
+  #     dockerfile: Dockerfile
+  #   container_name: codepromptu-api
+  #   ports:
+  #     - "8081:8081"
+  #   environment:
+  #     - SPRING_PROFILES_ACTIVE=docker
+  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/codepromptu
+  #     - SPRING_DATASOURCE_USERNAME=codepromptu_user
+  #     - SPRING_DATASOURCE_PASSWORD=codepromptu_pass
+  #     - SPRING_REDIS_HOST=cache
+  #     - SPRING_REDIS_PORT=6379
+  #     - CONFIG_SERVER_URI=http://config:8888
+  #   depends_on:
+  #     database:
+  #       condition: service_healthy
+  #     cache:
+  #       condition: service_healthy
+  #     config:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   networks:
+  #     - codepromptu-network
+
+  # Background Worker Service - Spring Batch
+  # worker:
+  #   build:
+  #     context: ./worker
+  #     dockerfile: Dockerfile
+  #   container_name: codepromptu-worker
+  #   environment:
+  #     - SPRING_PROFILES_ACTIVE=docker
+  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/codepromptu
+  #     - SPRING_DATASOURCE_USERNAME=codepromptu_user
+  #     - SPRING_DATASOURCE_PASSWORD=codepromptu_pass
+  #     - SPRING_REDIS_HOST=cache
+  #     - SPRING_REDIS_PORT=6379
+  #     - CONFIG_SERVER_URI=http://config:8888
+  #     - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+  #   depends_on:
+  #     database:
+  #       condition: service_healthy
+  #     cache:
+  #       condition: service_healthy
+  #     config:
+  #       condition: service_healthy
+  #   healthcheck:
+  #     test: ["CMD", "curl", "-f", "http://localhost:8084/actuator/health"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+  #   networks:
+  #     - codepromptu-network
+
+  # React Frontend
+  # ui:
+  #   build:
+  #     context: ./ui
+  #     dockerfile: Dockerfile
+  #   container_name: codepromptu-ui
+  #   ports:
+  #     - "3000:3000"
+  #   environment:
+  #     - REACT_APP_API_URL=http://localhost:8081
+  #     - REACT_APP_GATEWAY_URL=http://localhost:8080
+  #   depends_on:
+  #     - gateway
+  #   networks:
+  #     - codepromptu-network
+
+  # Monitoring Stack (Optional - for development)
+  # monitoring:
+  #   build:
+  #     context: ./monitoring
+  #     dockerfile: Dockerfile
+  #   container_name: codepromptu-monitoring
+  #   ports:
+  #     - "3001:3000"  # Grafana
+  #     - "9090:9090"  # Prometheus
+  #   volumes:
+  #     - prometheus_data:/prometheus
+  #     - grafana_data:/var/lib/grafana
+  #   depends_on:
+  #     - gateway
+  #   networks:
+  #     - codepromptu-network
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  codepromptu-network:
+    driver: bridge
+    name: codepromptu-network
+
+# Development override file
+# Create docker-compose.override.yml for local development customizations
