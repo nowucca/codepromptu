@@ -1,0 +1,1 @@
+For each top level maven module, I'd like to make sure it compiles, has a docker image that can be built, and has tests that can pass running tests locally.![alt text](image.png)
