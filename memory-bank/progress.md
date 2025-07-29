@@ -49,20 +49,55 @@
 - Unit test framework with comprehensive domain model tests
 - Complete README with setup and development guide
 
-## Current Sprint: Service Implementation
+## Current Sprint: Core API Implementation (Sprint 2)
 
-### 🔄 READY TO START
-**Sprint Goal**: Implement microservices with Spring AI integration
+### 🔄 IN PROGRESS - July 28, 2025
+**Sprint Goal**: Implement basic prompt CRUD and vector search functionality
 
+**Sprint Duration**: 2 weeks
+**Sprint Objectives**:
+1. Complete API service REST controllers for prompt management
+2. Implement Spring AI EmbeddingClient integration for vector generation
+3. Build vector similarity search using pgvector
+4. Create comprehensive integration tests with TestContainers
+5. Add OpenAPI documentation for all endpoints
+
+**Current Tasks**:
+1. ⏳ Implement PromptController with CRUD operations
+2. ⏳ Create PromptService with Spring AI EmbeddingClient integration
+3. ⏳ Build vector similarity search algorithms
+4. ⏳ Set up integration test suite with TestContainers
+5. ⏳ Add OpenAPI/Swagger documentation
+6. ⏳ Implement prompt classification logic (SAME/FORK/NEW)
+7. ⏳ Create comprehensive error handling and validation
+
+**Success Criteria**:
+- ✅ Can store and retrieve prompts via REST API
+- ✅ Vector embeddings generated automatically on prompt storage
+- ✅ Similarity search returns relevant results with proper scoring
+- ✅ All integration tests pass with real database
+- ✅ API documentation available via Swagger UI
+
+## Next Sprint: Gateway & Processing Pipeline (Sprint 3)
+
+### 📋 PLANNED - August 2025
+**Sprint Goal**: Implement prompt capture and background processing
+
+**Sprint Duration**: 2 weeks
 **Planned Tasks**:
-1. ⏳ Create Spring Boot application classes for each service
-2. ⏳ Implement Spring AI EmbeddingClient integration
-3. ⏳ Build REST API controllers with OpenAPI documentation
-4. ⏳ Set up basic React frontend with TypeScript
-5. ⏳ Create integration test suite with TestContainers
-6. ⏳ Implement vector similarity search algorithms
-7. ⏳ Background job processing with Spring Batch
-8. ⏳ Basic prompt capture and storage functionality
+1. Build LLM API proxy functionality in Gateway service
+2. Implement transparent prompt capture and interception
+3. Create background processing pipeline with Spring Batch
+4. Build clustering and template induction algorithms
+5. Add monitoring and observability features
+6. Implement conversation tracking and grouping
+
+**Success Criteria**:
+- LLM requests captured transparently without client changes
+- Background jobs process prompts successfully
+- Template generation algorithms working
+- Basic monitoring and health checks in place
+- Conversation grouping and session management functional
 
 ## Technical Decisions Made
 
@@ -109,6 +144,37 @@
 
 ## Known Issues & Technical Debt
 
+### Current Critical Issues
+1. **Spring Cloud Config Bootstrap Failures** ✅
+   - **Status**: RESOLVED (July 25-27, 2025)
+   - **Impact**: HIGH - Services cannot load centralized configuration
+   - **Root Cause**: Configuration approach conflicts between Spring Boot 2.4+ import and traditional bootstrap
+   - **Solution**: Implemented comprehensive Spring Cloud Config solution with proper bootstrap configuration
+   - **Reference**: `narrative-spring-cloud-config-success.md`
+
+2. **Redis Health Check Failures** ✅
+   - **Status**: RESOLVED (July 25-27, 2025)
+   - **Impact**: MEDIUM - Health checks fail but Redis infrastructure is healthy
+   - **Root Cause**: Services defaulting to localhost:6379 instead of cache:6379 due to config bootstrap failures
+   - **Solution**: Added custom Redis health indicators and proper configuration management
+   - **Reference**: `narrative-custom-redis-health-indicators-success.md`
+
+3. **Embedding Storage Issue** ✅
+   - **Status**: COMPLETELY RESOLVED (July 29, 2025)
+   - **Impact**: HIGH - Similarity search non-functional due to missing embeddings
+   - **Root Cause**: Database index constraint prevented 1536-dimensional vectors + Hibernate PGvector type mapping failures
+   - **Infrastructure Solution**: Comprehensive automatic embedding index management system implemented
+   - **Final Solution**: Complete migration from Hibernate to JDBC Template eliminated all type mapping issues
+   - **Reference**: `narrative-hibernate-to-jdbc-migration-complete.md`
+
+4. **Hibernate PGvector Type Mapping Failures** ✅
+   - **Status**: RESOLVED via Architecture Migration (July 29, 2025)
+   - **Impact**: CRITICAL - Complex type mapping issues causing embedding storage failures
+   - **Root Cause**: Hibernate's type system incompatible with PostgreSQL pgvector extension
+   - **Solution**: Complete migration to JDBC Template with custom row mappers
+   - **Benefits**: Improved performance, reliability, and maintainability
+   - **Reference**: `narrative-hibernate-to-jdbc-migration-complete.md`
+
 ### Current Limitations
 1. **Single Embedding Model**: No support for model migration or multiple models
    - Impact: Medium - limits flexibility for different use cases
@@ -123,17 +189,23 @@
    - Plan: Implement ML-based auto-tuning in future release
 
 ### Technical Debt Items
-1. **Error Handling**: Need comprehensive error handling strategy
+1. **Configuration Management**: Spring Cloud Config bootstrap needs complete fix
+   - Priority: HIGH
+   - Effort: 1 week
+   - Plan: Resolve bootstrap conflicts and remove local config workarounds
+   - Status: IN PROGRESS
+
+2. **Error Handling**: Need comprehensive error handling strategy
    - Priority: High
    - Effort: 2 weeks
    - Plan: Implement in current sprint
 
-2. **Monitoring**: Basic health checks only, need comprehensive observability
+3. **Monitoring**: Basic health checks only, need comprehensive observability
    - Priority: Medium
    - Effort: 1 week
    - Plan: Add Prometheus/Grafana integration in Phase 2
 
-3. **Security**: Basic authentication, need enterprise-grade security
+4. **Security**: Basic authentication, need enterprise-grade security
    - Priority: High for production
    - Effort: 3 weeks
    - Plan: Implement RBAC and audit logging in Phase 2

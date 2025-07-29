@@ -3,3 +3,4 @@
 /Users/satkinson/Work/constellize/book/codepromptu/src/shared/src/main/java/com/codepromptu/shared/domain/PromptEvaluation.java
 /Users/satkinson/Work/constellize/book/codepromptu/src/shared/src/main/java/com/codepromptu/shared/domain/PromptTemplate.java
 /Users/satkinson/Work/constellize/book/codepromptu/src/shared/src/main/java/com/codepromptu/shared/domain/PromptUsage.java
+/Users/satkinson/Work/constellize/book/codepromptu/src/shared/src/main/java/com/codepromptu/shared/serialization/PromptSerializer.java

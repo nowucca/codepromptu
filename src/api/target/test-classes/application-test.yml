@@ -1,0 +1,49 @@
+spring:
+  cloud:
+    config:
+      enabled: false
+      fail-fast: false
+      discovery:
+        enabled: false
+    bootstrap:
+      enabled: false
+    discovery:
+      enabled: false
+  config:
+    import: "optional:configserver:"
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: password
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    database-platform: org.hibernate.dialect.H2Dialect
+  security:
+    user:
+      name: codepromptu
+      password: codepromptu
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 1
+  ai:
+    openai:
+      api-key: test-key-for-testing
+
+# Test-specific configuration
+codepromptu:
+  similarity:
+    threshold:
+      same: 0.95
+      fork: 0.70
+  embedding:
+    dimensions: 1536
+    batch-size: 100
+
+logging:
+  level:
+    com.codepromptu: DEBUG
+    org.springframework.cloud.config: OFF

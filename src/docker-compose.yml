@@ -83,8 +83,6 @@ services:
         condition: service_healthy
       cache:
         condition: service_healthy
-      config:
-        condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
       interval: 30s
@@ -124,35 +122,34 @@ services:
   #     - codepromptu-network
 
   # Web API Service - Spring Boot REST
-  # api:
-  #   build:
-  #     context: ./api
-  #     dockerfile: Dockerfile
-  #   container_name: codepromptu-api
-  #   ports:
-  #     - "8081:8081"
-  #   environment:
-  #     - SPRING_PROFILES_ACTIVE=docker
-  #     - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/codepromptu
-  #     - SPRING_DATASOURCE_USERNAME=codepromptu_user
-  #     - SPRING_DATASOURCE_PASSWORD=codepromptu_pass
-  #     - SPRING_REDIS_HOST=cache
-  #     - SPRING_REDIS_PORT=6379
-  #     - CONFIG_SERVER_URI=http://config:8888
-  #   depends_on:
-  #     database:
-  #       condition: service_healthy
-  #     cache:
-  #       condition: service_healthy
-  #     config:
-  #       condition: service_healthy
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
-  #     interval: 30s
-  #     timeout: 10s
-  #     retries: 3
-  #   networks:
-  #     - codepromptu-network
+  api:
+    build:
+      context: ./api
+      dockerfile: Dockerfile
+    container_name: codepromptu-api
+    ports:
+      - "8081:8081"
+    environment:
+      - SPRING_PROFILES_ACTIVE=docker
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://database:5432/codepromptu
+      - SPRING_DATASOURCE_USERNAME=codepromptu_user
+      - SPRING_DATASOURCE_PASSWORD=codepromptu_pass
+      - CONFIG_SERVER_URI=http://config:8888
+    command: ["sh", "-c", "java -Dspring.cloud.config.uri=http://config:8888 -jar app.jar"]
+    depends_on:
+      database:
+        condition: service_healthy
+      cache:
+        condition: service_healthy
+      config:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - codepromptu-network
 
   # Background Worker Service - Spring Batch
   # worker:

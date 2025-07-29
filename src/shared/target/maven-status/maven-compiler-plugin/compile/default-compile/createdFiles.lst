@@ -1,4 +1,5 @@
 com/codepromptu/shared/domain/Prompt$PromptBuilder.class
+com/codepromptu/shared/serialization/PromptSerializer.class
 com/codepromptu/shared/domain/PromptEvaluation.class
 com/codepromptu/shared/domain/PromptCrossref.class
 com/codepromptu/shared/domain/PromptUsage$PromptUsageBuilder.class

@@ -1,16 +1,11 @@
 package com.codepromptu.shared.domain;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonIgnoreType;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.pgvector.PGvector;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.annotations.UpdateTimestamp;
-import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -20,14 +15,10 @@ import java.util.UUID;
 /**
  * Core domain entity representing a prompt with its metadata, versioning, and vector embedding.
  * Supports hierarchical relationships through parent-child links for prompt evolution tracking.
+ * 
+ * This is now a simple POJO without JPA/Hibernate annotations for use with JDBC Template.
  */
-@Entity
-@Table(name = "prompts", indexes = {
-    @Index(name = "idx_prompts_parent_id", columnList = "parent_id"),
-    @Index(name = "idx_prompts_team_owner", columnList = "team_owner"),
-    @Index(name = "idx_prompts_created_at", columnList = "created_at"),
-    @Index(name = "idx_prompts_embedding", columnList = "embedding")
-})
+@JsonIgnoreType
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -35,8 +26,6 @@ import java.util.UUID;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class Prompt {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @EqualsAndHashCode.Include
     private UUID id;
 
@@ -44,15 +33,12 @@ public class Prompt {
      * Parent prompt for tracking evolution and forking relationships.
      * Null for root prompts.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "parent_id")
     @JsonIgnore
     private Prompt parent;
 
     /**
      * Child prompts that were forked or evolved from this prompt.
      */
-    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     @Builder.Default
     private List<Prompt> children = new ArrayList<>();
@@ -60,94 +46,76 @@ public class Prompt {
     /**
      * The actual prompt content/text.
      */
-    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
-    @NotBlank(message = "Prompt content cannot be blank")
     private String content;
 
     /**
      * Vector embedding of the prompt content for similarity search.
      * Uses pgvector extension with 1536 dimensions (OpenAI ada-002).
      */
-    @Column(name = "embedding", columnDefinition = "vector(1536)")
     private PGvector embedding;
 
     /**
      * Flexible metadata storage for prompt-specific information.
      * Can include tags, categories, success criteria, etc.
      */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "metadata", columnDefinition = "jsonb")
     @Builder.Default
     private JsonNode metadata = null;
 
     /**
      * Author/creator of the prompt.
      */
-    @Column(name = "author")
     private String author;
 
     /**
      * Purpose or use case description for the prompt.
      */
-    @Column(name = "purpose", columnDefinition = "TEXT")
     private String purpose;
 
     /**
      * Success criteria for evaluating prompt effectiveness.
      */
-    @Column(name = "success_criteria", columnDefinition = "TEXT")
     private String successCriteria;
 
     /**
      * Tags for categorization and discovery.
      */
-    @Column(name = "tags")
     private String[] tags;
 
     /**
      * Team or organization that owns this prompt.
      */
-    @Column(name = "team_owner")
     private String teamOwner;
 
     /**
      * Target LLM model for this prompt (e.g., "gpt-4", "claude-3").
      */
-    @Column(name = "model_target")
     private String modelTarget;
 
     /**
      * Version number for tracking prompt evolution.
      */
-    @Column(name = "version")
     @Builder.Default
     private Integer version = 1;
 
     /**
      * Whether this prompt is currently active/available.
      */
-    @Column(name = "is_active")
     @Builder.Default
     private Boolean isActive = true;
 
     /**
      * Timestamp when the prompt was created.
      */
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     /**
      * Timestamp when the prompt was last updated.
      */
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     /**
      * Cross-references to related prompts (not in the same lineage).
      */
-    @OneToMany(mappedBy = "sourcePrompt", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     @Builder.Default
     private List<PromptCrossref> outgoingCrossrefs = new ArrayList<>();
@@ -155,7 +123,6 @@ public class Prompt {
     /**
      * Cross-references from other prompts to this one.
      */
-    @OneToMany(mappedBy = "targetPrompt", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     @Builder.Default
     private List<PromptCrossref> incomingCrossrefs = new ArrayList<>();
@@ -163,7 +130,6 @@ public class Prompt {
     /**
      * Usage records for this prompt.
      */
-    @OneToMany(mappedBy = "prompt", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     @Builder.Default
     private List<PromptUsage> usages = new ArrayList<>();
@@ -171,7 +137,6 @@ public class Prompt {
     /**
      * Evaluation records for this prompt.
      */
-    @OneToMany(mappedBy = "prompt", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore
     @Builder.Default
     private List<PromptEvaluation> evaluations = new ArrayList<>();
@@ -179,7 +144,7 @@ public class Prompt {
     /**
      * Check if this prompt is a root prompt (has no parent).
      */
-    public boolean isRoot() {
+    public boolean checkIsRoot() {
         return parent == null;
     }
 
@@ -191,9 +156,9 @@ public class Prompt {
     }
 
     /**
-     * Get the root prompt in the lineage hierarchy.
+     * Find the root prompt in the lineage hierarchy.
      */
-    public Prompt getRoot() {
+    public Prompt findRoot() {
         Prompt current = this;
         while (current.getParent() != null) {
             current = current.getParent();

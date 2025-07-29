@@ -1,5 +1,9 @@
 com/codepromptu/gateway/GatewayApplication.class
 com/codepromptu/gateway/filter/RateLimitingFilter.class
+com/codepromptu/gateway/config/CustomRedisHealthIndicator.class
+com/codepromptu/gateway/controller/HealthController$2.class
 com/codepromptu/gateway/controller/HealthController.class
 com/codepromptu/gateway/config/SecurityConfig.class
+com/codepromptu/gateway/controller/HealthController$1.class
 com/codepromptu/gateway/filter/RequestLoggingFilter.class
+com/codepromptu/gateway/config/RedisConfig.class

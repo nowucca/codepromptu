@@ -686,3 +686,118 @@ spring:
 - RBAC implementation with Spring Security
 - Audit logging for compliance
 - Input validation and sanitization
+
+---
+
+## Web API Service Implementation Plan
+
+### 1. Project Structure (Following Existing Conventions)
+```
+codepromptu/src/api/
+├── Dockerfile                    # Multi-stage build like gateway
+├── pom.xml                      # Maven config with shared dependencies
+├── mvnw                         # Maven wrapper (copied from existing)
+├── .mvn/wrapper/               # Maven wrapper files
+├── src/main/java/com/codepromptu/api/
+│   ├── ApiApplication.java      # Main Spring Boot application
+│   ├── controller/
+│   │   ├── PromptController.java
+│   │   ├── PromptTemplateController.java
+│   │   ├── SearchController.java
+│   │   └── HealthController.java
+│   ├── service/
+│   │   ├── PromptService.java
+│   │   ├── PromptTemplateService.java
+│   │   └── SearchService.java
+│   ├── repository/
+│   │   ├── PromptRepository.java
+│   │   ├── PromptTemplateRepository.java
+│   │   └── PromptUsageRepository.java
+│   ├── config/
+│   │   ├── DatabaseConfig.java
+│   │   └── SecurityConfig.java
+│   └── dto/
+│       ├── PromptDto.java
+│       ├── CreatePromptRequest.java
+│       └── SearchRequest.java
+├── src/main/resources/
+│   ├── application.yml          # Main config
+│   └── bootstrap.yml           # Config server bootstrap
+└── src/test/java/com/codepromptu/api/
+    ├── ApiApplicationTest.java
+    ├── controller/
+    │   ├── PromptControllerTest.java
+    │   └── SearchControllerTest.java
+    ├── service/
+    │   ├── PromptServiceTest.java
+    │   └── SearchServiceTest.java
+    └── repository/
+        └── PromptRepositoryTest.java
+```
+
+### 2. Key Features to Implement
+
+**REST Endpoints:**
+- `GET /api/prompts` - List prompts with pagination
+- `GET /api/prompts/{id}` - Get specific prompt
+- `POST /api/prompts` - Create new prompt
+- `PUT /api/prompts/{id}` - Update prompt
+- `DELETE /api/prompts/{id}` - Delete prompt
+- `POST /api/prompts/{id}/fork` - Fork a prompt
+- `GET /api/search/prompts` - Search prompts by similarity
+- `GET /api/search/similar/{id}` - Find similar prompts
+- `GET /actuator/health` - Health check
+
+**Business Logic:**
+- Prompt CRUD operations using shared domain models
+- Vector similarity search using pgvector
+- Prompt forking and versioning logic
+- Integration with existing database schema
+
+### 3. Testing Strategy
+
+**Unit Tests:**
+- Controller tests with MockMvc
+- Service layer tests with mocked repositories
+- Repository tests with @DataJpaTest
+
+**Integration Tests:**
+- Full API integration tests with TestContainers
+- Database integration tests
+- Configuration tests
+
+### 4. Docker Integration
+
+**Configuration:**
+- Add API service to docker-compose.yml (uncomment and configure)
+- Port 8081 exposure
+- Same environment variables as other services
+- Health check endpoint
+- Proper service dependencies
+
+**Service Dependencies:**
+- Database (with health check)
+- Cache (with health check) 
+- Config server (with health check)
+
+### 5. Configuration Management
+
+**Spring Cloud Config Integration:**
+- Bootstrap configuration pointing to config server
+- Environment-specific profiles (docker, test, local)
+- Database and Redis connection configuration
+- Logging and actuator configuration
+
+**Config Repository:**
+- Add `api.yml` to config-repo with service-specific settings
+- Database connection pooling
+- Cache configuration
+- Security settings
+
+This implementation will:
+- ✅ Follow existing project conventions and patterns
+- ✅ Integrate seamlessly with Docker Compose
+- ✅ Include comprehensive test coverage
+- ✅ Use shared domain models and database schema
+- ✅ Provide health checks and monitoring
+- ✅ Support the existing infrastructure (config server, database, cache)
