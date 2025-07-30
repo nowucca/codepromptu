@@ -1,9 +1,6 @@
 package com.codepromptu.shared.domain;
 
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -11,14 +8,9 @@ import java.util.UUID;
 /**
  * Entity representing cross-references between related prompts that are not in the same lineage.
  * Used to surface common patterns across teams and domains.
+ * 
+ * This is now a simple POJO without JPA/Hibernate annotations for use with JDBC Template.
  */
-@Entity
-@Table(name = "prompt_crossrefs", indexes = {
-    @Index(name = "idx_crossrefs_source_prompt", columnList = "source_prompt_id"),
-    @Index(name = "idx_crossrefs_target_prompt", columnList = "target_prompt_id"),
-    @Index(name = "idx_crossrefs_similarity", columnList = "similarity_score"),
-    @Index(name = "idx_crossrefs_relationship", columnList = "relationship_type")
-})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -26,52 +18,39 @@ import java.util.UUID;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class PromptCrossref {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @EqualsAndHashCode.Include
     private UUID id;
 
     /**
      * Source prompt in the cross-reference relationship.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "source_prompt_id", nullable = false)
-    @NotNull(message = "Source prompt cannot be null")
     private Prompt sourcePrompt;
 
     /**
      * Target prompt in the cross-reference relationship.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "target_prompt_id", nullable = false)
-    @NotNull(message = "Target prompt cannot be null")
     private Prompt targetPrompt;
 
     /**
      * Type of relationship between the prompts.
      * Examples: "similar", "variant", "improvement", "related", "opposite"
      */
-    @Column(name = "relationship_type", length = 100)
     private String relationshipType;
 
     /**
      * Similarity score between the prompts (0.0 to 1.0).
      * Calculated using vector similarity or other metrics.
      */
-    @Column(name = "similarity_score")
     private Float similarityScore;
 
     /**
      * Optional notes explaining the relationship.
      */
-    @Column(name = "notes", columnDefinition = "TEXT")
     private String notes;
 
     /**
      * Timestamp when the cross-reference was created.
      */
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     /**
@@ -189,9 +168,7 @@ public class PromptCrossref {
     /**
      * Validate that source and target are different prompts.
      */
-    @PrePersist
-    @PreUpdate
-    private void validateCrossref() {
+    public void validateCrossref() {
         if (sourcePrompt != null && targetPrompt != null && 
             sourcePrompt.getId() != null && targetPrompt.getId() != null &&
             sourcePrompt.getId().equals(targetPrompt.getId())) {

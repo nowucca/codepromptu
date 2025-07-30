@@ -33,6 +33,44 @@ public class LLMFallbackController {
             .body(fallbackResponse));
     }
     
+    @PostMapping("/anthropic")
+    public Mono<ResponseEntity<String>> anthropicFallback(ServerWebExchange exchange) {
+        log.warn("Anthropic circuit breaker activated - service temporarily unavailable");
+        
+        String fallbackResponse = """
+            {
+                "error": {
+                    "message": "Anthropic service is temporarily unavailable. Please try again later.",
+                    "type": "service_unavailable",
+                    "code": "circuit_breaker_open"
+                }
+            }
+            """;
+        
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .header("Content-Type", "application/json")
+            .body(fallbackResponse));
+    }
+    
+    @PostMapping("/google-ai")
+    public Mono<ResponseEntity<String>> googleAIFallback(ServerWebExchange exchange) {
+        log.warn("Google AI circuit breaker activated - service temporarily unavailable");
+        
+        String fallbackResponse = """
+            {
+                "error": {
+                    "message": "Google AI service is temporarily unavailable. Please try again later.",
+                    "type": "service_unavailable",
+                    "code": "circuit_breaker_open"
+                }
+            }
+            """;
+        
+        return Mono.just(ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+            .header("Content-Type", "application/json")
+            .body(fallbackResponse));
+    }
+    
     @PostMapping("/generic")
     public Mono<ResponseEntity<String>> genericFallback(ServerWebExchange exchange) {
         log.warn("Generic circuit breaker activated for path: {}", 

@@ -69,7 +69,7 @@ public class EmbeddingIntegrationTest {
     private PromptService promptService;
 
     @Autowired
-    private JdbcPromptRepository promptRepository;
+    private JdbcPromptRepository jdbcPromptRepository;
 
     @Autowired
     private SimilarityService similarityService;
@@ -280,7 +280,7 @@ public class EmbeddingIntegrationTest {
         assertEquals(1536, savedPrompt.getEmbedding().toArray().length, "Embedding should have 1536 dimensions");
 
         // Retrieve from database and verify
-        Optional<Prompt> retrievedPrompt = promptRepository.findById(savedPrompt.getId());
+        Optional<Prompt> retrievedPrompt = jdbcPromptRepository.findById(savedPrompt.getId());
         assertTrue(retrievedPrompt.isPresent(), "Prompt should be retrievable from database");
         assertNotNull(retrievedPrompt.get().getEmbedding(), "Retrieved prompt should have embedding");
 

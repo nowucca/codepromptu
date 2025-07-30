@@ -40,7 +40,7 @@ public class PromptCaptureService {
     private boolean redisFallbackEnabled;
     
     public Mono<Void> capturePromptUsage(CaptureContext context, ServerHttpResponse response) {
-        if (!captureEnabled) {
+        if (!captureEnabled || context == null) {
             return Mono.empty();
         }
         

@@ -1,12 +1,7 @@
 package com.codepromptu.shared.domain;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotNull;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -14,15 +9,9 @@ import java.util.UUID;
 /**
  * Entity representing evaluation metrics and feedback for prompts and their usage.
  * Supports both quantitative metrics and qualitative feedback.
+ * 
+ * This is now a simple POJO without JPA/Hibernate annotations for use with JDBC Template.
  */
-@Entity
-@Table(name = "prompt_evaluations", indexes = {
-    @Index(name = "idx_evaluations_prompt_id", columnList = "prompt_id"),
-    @Index(name = "idx_evaluations_usage_id", columnList = "usage_id"),
-    @Index(name = "idx_evaluations_score", columnList = "score"),
-    @Index(name = "idx_evaluations_type", columnList = "evaluation_type"),
-    @Index(name = "idx_evaluations_created_at", columnList = "created_at")
-})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -30,72 +19,56 @@ import java.util.UUID;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class PromptEvaluation {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @EqualsAndHashCode.Include
     private UUID id;
 
     /**
      * Reference to the prompt being evaluated.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "prompt_id", nullable = false)
-    @NotNull(message = "Prompt cannot be null")
     private Prompt prompt;
 
     /**
      * Reference to the specific usage instance (optional).
      * If null, this evaluation applies to the prompt in general.
      */
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "usage_id")
     private PromptUsage usage;
 
     /**
      * Type of evaluation: "quantitative", "qualitative", "automated", "manual"
      */
-    @Column(name = "evaluation_type", length = 100)
     private String evaluationType;
 
     /**
      * Numeric score for the evaluation.
      */
-    @Column(name = "score")
     private Float score;
 
     /**
      * Maximum possible score (for normalization).
      */
-    @Column(name = "max_score")
     @Builder.Default
     private Float maxScore = 1.0f;
 
     /**
      * Textual feedback or comments about the prompt/usage.
      */
-    @Column(name = "feedback", columnDefinition = "TEXT")
     private String feedback;
 
     /**
      * Person or system that provided the evaluation.
      */
-    @Column(name = "evaluator")
     private String evaluator;
 
     /**
      * Structured criteria used for evaluation.
      * Can include metrics like accuracy, relevance, clarity, etc.
      */
-    @JdbcTypeCode(SqlTypes.JSON)
-    @Column(name = "criteria", columnDefinition = "jsonb")
     @Builder.Default
     private JsonNode criteria = null;
 
     /**
      * Timestamp when the evaluation was created.
      */
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     /**

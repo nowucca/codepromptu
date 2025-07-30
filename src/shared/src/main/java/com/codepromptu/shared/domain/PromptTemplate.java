@@ -1,11 +1,7 @@
 package com.codepromptu.shared.domain;
 
 import com.pgvector.PGvector;
-import jakarta.persistence.*;
-import jakarta.validation.constraints.NotBlank;
 import lombok.*;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.Instant;
 import java.util.ArrayList;
@@ -15,13 +11,9 @@ import java.util.UUID;
 /**
  * Template entity representing a prompt shell derived from clustering similar prompts.
  * Contains the common structure with variable placeholders for prompt families.
+ * 
+ * This is now a simple POJO without JPA/Hibernate annotations for use with JDBC Template.
  */
-@Entity
-@Table(name = "prompt_templates", indexes = {
-    @Index(name = "idx_templates_embedding", columnList = "embedding"),
-    @Index(name = "idx_templates_usage_count", columnList = "usage_count"),
-    @Index(name = "idx_templates_created_at", columnList = "created_at")
-})
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -29,8 +21,6 @@ import java.util.UUID;
 @EqualsAndHashCode(onlyExplicitlyIncluded = true)
 public class PromptTemplate {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @EqualsAndHashCode.Include
     private UUID id;
 
@@ -38,28 +28,23 @@ public class PromptTemplate {
      * The template shell with variable placeholders (e.g., __VAR1__, __VAR2__).
      * Represents the common structure across clustered prompts.
      */
-    @Column(name = "shell", nullable = false, columnDefinition = "TEXT")
-    @NotBlank(message = "Template shell cannot be blank")
     private String shell;
 
     /**
      * Array of text fragments that make up the template.
      * Used for efficient variable extraction during runtime matching.
      */
-    @Column(name = "fragments")
     private String[] fragments;
 
     /**
      * Vector embedding of the template shell for similarity matching.
      * Uses pgvector extension with 1536 dimensions (OpenAI ada-002).
      */
-    @Column(name = "embedding", columnDefinition = "vector(1536)")
     private PGvector embedding;
 
     /**
      * Number of variable placeholders in this template.
      */
-    @Column(name = "variable_count")
     @Builder.Default
     private Integer variableCount = 0;
 
@@ -67,28 +52,22 @@ public class PromptTemplate {
      * Number of times this template has been used/matched.
      * Updated when prompts are matched to this template.
      */
-    @Column(name = "usage_count")
     @Builder.Default
     private Integer usageCount = 0;
 
     /**
      * Timestamp when the template was created.
      */
-    @CreationTimestamp
-    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     /**
      * Timestamp when the template was last updated.
      */
-    @UpdateTimestamp
-    @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     /**
      * Usage records that reference this template.
      */
-    @OneToMany(mappedBy = "template", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<PromptUsage> usages = new ArrayList<>();
 

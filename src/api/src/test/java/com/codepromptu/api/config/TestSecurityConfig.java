@@ -26,6 +26,9 @@ public class TestSecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(authz -> authz
                 .requestMatchers("/actuator/**").permitAll()
+                .requestMatchers("/health/**").permitAll()
+                .requestMatchers("/internal/**").permitAll() // Allow internal endpoints
+                .requestMatchers("/api/v1/prompts/**").authenticated() // Require authentication for prompts
                 .anyRequest().authenticated()
             )
             .httpBasic(httpBasic -> {});

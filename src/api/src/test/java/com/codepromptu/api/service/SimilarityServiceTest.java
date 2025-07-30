@@ -1,6 +1,6 @@
 package com.codepromptu.api.service;
 
-import com.codepromptu.api.repository.PromptRepository;
+import com.codepromptu.api.repository.JdbcPromptRepository;
 import com.codepromptu.api.repository.PromptVectorRepository;
 import com.codepromptu.shared.domain.Prompt;
 import com.pgvector.PGvector;
@@ -32,7 +32,7 @@ import static org.mockito.Mockito.*;
 class SimilarityServiceTest {
 
     @Mock
-    private PromptRepository promptRepository;
+    private JdbcPromptRepository promptRepository;
 
     @Mock
     private PromptVectorRepository promptVectorRepository;

@@ -1,13 +1,17 @@
 package com.codepromptu.gateway.model;
 
+import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 import java.util.Map;
 
 @Data
 @Builder
+@NoArgsConstructor
+@AllArgsConstructor
 public class CaptureContext {
     
     private String requestId;
@@ -36,4 +40,13 @@ public class CaptureContext {
     private Integer tokensOutput;
     private String status;
     private Long latencyMs;
+    
+    // Convenience method for setting metadata
+    public void setMetadata(Map<String, Object> metadata) {
+        this.additionalParams = metadata;
+    }
+    
+    public Map<String, Object> getMetadata() {
+        return this.additionalParams;
+    }
 }

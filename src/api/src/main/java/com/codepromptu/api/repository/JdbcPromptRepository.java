@@ -336,6 +336,32 @@ public class JdbcPromptRepository {
     }
 
     /**
+     * Find prompts above a specific similarity threshold using pgvector cosine similarity.
+     */
+    public List<Prompt> findPromptsByThreshold(PGvector embedding, double threshold) {
+        try {
+            String sql = """
+                SELECT id, content, author, purpose, success_criteria, metadata, tags, 
+                       team_owner, model_target, parent_id, version, is_active, embedding,
+                       created_at, updated_at
+                FROM prompts 
+                WHERE is_active = true 
+                AND embedding IS NOT NULL
+                AND (1 - (embedding <=> CAST(? AS vector))) >= ?
+                ORDER BY embedding <=> CAST(? AS vector)
+                """;
+
+            String embeddingString = embedding.toString();
+            return jdbcTemplate.query(sql, new PromptRowMapper(), 
+                embeddingString, threshold, embeddingString);
+
+        } catch (Exception e) {
+            logger.error("Failed to find prompts by threshold {}: {}", threshold, e.getMessage(), e);
+            throw new RuntimeException("Failed to find prompts by threshold", e);
+        }
+    }
+
+    /**
      * RowMapper for converting ResultSet to Prompt objects.
      */
     private class PromptRowMapper implements RowMapper<Prompt> {

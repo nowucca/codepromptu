@@ -1,6 +1,6 @@
 package com.codepromptu.api.service;
 
-import com.codepromptu.api.repository.PromptRepository;
+import com.codepromptu.api.repository.JdbcPromptRepository;
 import com.codepromptu.api.repository.PromptVectorRepository;
 import com.codepromptu.shared.domain.Prompt;
 import org.slf4j.Logger;
@@ -20,7 +20,7 @@ public class SimilarityService {
 
     private static final Logger logger = LoggerFactory.getLogger(SimilarityService.class);
 
-    private final PromptRepository promptRepository;
+    private final JdbcPromptRepository promptRepository;
     private final PromptVectorRepository promptVectorRepository;
     private final EmbeddingService embeddingService;
 
@@ -31,7 +31,7 @@ public class SimilarityService {
     private double forkThreshold;
 
     @Autowired
-    public SimilarityService(PromptRepository promptRepository, PromptVectorRepository promptVectorRepository, EmbeddingService embeddingService) {
+    public SimilarityService(JdbcPromptRepository promptRepository, PromptVectorRepository promptVectorRepository, EmbeddingService embeddingService) {
         this.promptRepository = promptRepository;
         this.promptVectorRepository = promptVectorRepository;
         this.embeddingService = embeddingService;
@@ -227,7 +227,6 @@ public class SimilarityService {
             var pgVector = embeddingService.convertToPGVector(embedding);
             
             // Use repository method to find prompts above threshold
-            // Note: This will need to be implemented in the repository
             List<Prompt> prompts = promptRepository.findPromptsByThreshold(pgVector, threshold);
             
             return prompts.stream()
