@@ -1,36 +1,25 @@
 spring:
-  application:
-    name: gateway
-  profiles:
-    active: test
   cloud:
     config:
       enabled: false
-  redis:
-    host: localhost
-    port: 6379
-    timeout: 2000ms
-    lettuce:
-      pool:
-        max-active: 8
-        max-idle: 8
-        min-idle: 0
-
-server:
-  port: 0  # Random port for testing
+      fail-fast: false
+  config:
+    import: ""
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 1
+  profiles:
+    active: test
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info,gateway
-  endpoint:
-    health:
-      show-details: always
+        include: health,info,metrics
 
 logging:
   level:
-    org.springframework.cloud.gateway: INFO
-    org.springframework.security: INFO
-    com.codepromptu: INFO
-    root: WARN
+    com.codepromptu: DEBUG
+    org.springframework.cloud.gateway: DEBUG
