@@ -74,35 +74,77 @@ public class TemplateInductionService {
 ```
 
 #### B. Conversation Tracking Service
-**Purpose**: Group related prompts into conversation sessions
+**Purpose**: Group related prompts and responses into complete conversation sessions
 
 ```java
 @Service
 public class ConversationTrackingService {
     
     private final ConversationRepository conversationRepository;
+    private final ConversationMessageRepository messageRepository;
     private final SessionAnalyzer sessionAnalyzer;
     
-    public ConversationSession trackConversation(PromptUsage usage) {
+    public ConversationSession trackPrompt(PromptUsage usage) {
         // 1. Identify conversation context
         ConversationContext context = sessionAnalyzer.analyzeContext(usage);
         
         // 2. Find or create conversation session
         ConversationSession session = findOrCreateSession(context);
         
-        // 3. Add prompt to session
-        session.addPrompt(usage);
+        // 3. Create conversation message for the prompt
+        ConversationMessage promptMessage = ConversationMessage.builder()
+            .sessionId(session.getId())
+            .messageType(MessageType.PROMPT)
+            .content(usage.getPromptContent())
+            .timestamp(usage.getTimestamp())
+            .metadata(usage.getMetadata())
+            .build();
         
-        // 4. Update session metadata
-        updateSessionMetadata(session);
+        messageRepository.save(promptMessage);
+        session.incrementMessageCount();
         
         return conversationRepository.save(session);
+    }
+    
+    public ConversationSession trackResponse(LLMResponse response) {
+        // 1. Find the conversation session by correlation ID
+        ConversationSession session = findSessionByCorrelationId(response.getCorrelationId());
+        
+        if (session != null) {
+            // 2. Create conversation message for the response
+            ConversationMessage responseMessage = ConversationMessage.builder()
+                .sessionId(session.getId())
+                .messageType(MessageType.RESPONSE)
+                .content(response.getContent())
+                .timestamp(response.getTimestamp())
+                .provider(response.getProvider())
+                .model(response.getModel())
+                .tokenUsage(response.getTokenUsage())
+                .metadata(response.getMetadata())
+                .build();
+            
+            messageRepository.save(responseMessage);
+            session.incrementMessageCount();
+            session.addTokenUsage(response.getTokenUsage());
+            
+            return conversationRepository.save(session);
+        }
+        
+        return null;
+    }
+    
+    public List<ConversationMessage> getFullConversation(UUID sessionId) {
+        return messageRepository.findBySessionIdOrderByTimestamp(sessionId);
     }
     
     private ConversationSession findOrCreateSession(ConversationContext context) {
         return conversationRepository
             .findActiveSessionByContext(context)
             .orElseGet(() -> createNewSession(context));
+    }
+    
+    private ConversationSession findSessionByCorrelationId(String correlationId) {
+        return conversationRepository.findByCorrelationId(correlationId);
     }
 }
 ```
@@ -156,16 +198,43 @@ CREATE TABLE prompt_templates (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Conversation sessions
+-- Enhanced conversation sessions with correlation tracking
 CREATE TABLE conversation_sessions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    correlation_id VARCHAR(255) UNIQUE NOT NULL,
     user_context JSONB,
-    session_start TIMESTAMP,
+    session_start TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     session_end TIMESTAMP,
-    prompt_count INTEGER DEFAULT 0,
+    message_count INTEGER DEFAULT 0,
     total_tokens INTEGER DEFAULT 0,
+    status VARCHAR(20) DEFAULT 'ACTIVE',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Individual conversation messages (prompts and responses)
+CREATE TABLE conversation_messages (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    session_id UUID NOT NULL REFERENCES conversation_sessions(id) ON DELETE CASCADE,
+    message_type VARCHAR(20) NOT NULL CHECK (message_type IN ('PROMPT', 'RESPONSE')),
+    content TEXT NOT NULL,
+    timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    provider VARCHAR(50),
+    model VARCHAR(100),
+    token_usage JSONB,
+    metadata JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Index for efficient conversation retrieval
+CREATE INDEX idx_conversation_messages_session_timestamp 
+ON conversation_messages(session_id, timestamp);
+
+CREATE INDEX idx_conversation_sessions_correlation 
+ON conversation_sessions(correlation_id);
+
+CREATE INDEX idx_conversation_sessions_status 
+ON conversation_sessions(status, updated_at);
 
 -- Analytics reports
 CREATE TABLE analytics_reports (
@@ -176,6 +245,302 @@ CREATE TABLE analytics_reports (
     report_type VARCHAR(50) NOT NULL,
     generated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Message types enum for type safety
+CREATE TYPE message_type_enum AS ENUM ('PROMPT', 'RESPONSE');
+ALTER TABLE conversation_messages 
+ALTER COLUMN message_type TYPE message_type_enum 
+USING message_type::message_type_enum;
+```
+
+### Domain Models for Conversation Tracking
+
+```java
+// ConversationSession.java
+@Entity
+@Table(name = "conversation_sessions")
+public class ConversationSession {
+    @Id
+    @GeneratedValue(generator = "UUID")
+    private UUID id;
+    
+    @Column(name = "correlation_id", unique = true, nullable = false)
+    private String correlationId;
+    
+    @Column(name = "user_context", columnDefinition = "jsonb")
+    private String userContext;
+    
+    @Column(name = "session_start")
+    private Instant sessionStart;
+    
+    @Column(name = "session_end")
+    private Instant sessionEnd;
+    
+    @Column(name = "message_count")
+    private Integer messageCount = 0;
+    
+    @Column(name = "total_tokens")
+    private Integer totalTokens = 0;
+    
+    @Enumerated(EnumType.STRING)
+    private SessionStatus status = SessionStatus.ACTIVE;
+    
+    public void incrementMessageCount() {
+        this.messageCount++;
+        this.updatedAt = Instant.now();
+    }
+    
+    public void addTokenUsage(TokenUsage tokenUsage) {
+        if (tokenUsage != null) {
+            this.totalTokens += tokenUsage.getTotalTokens();
+        }
+    }
+    
+    // getters, setters, builder pattern...
+}
+
+// ConversationMessage.java
+@Entity
+@Table(name = "conversation_messages")
+public class ConversationMessage {
+    @Id
+    @GeneratedValue(generator = "UUID")
+    private UUID id;
+    
+    @Column(name = "session_id", nullable = false)
+    private UUID sessionId;
+    
+    @Enumerated(EnumType.STRING)
+    @Column(name = "message_type", nullable = false)
+    private MessageType messageType;
+    
+    @Column(name = "content", nullable = false, columnDefinition = "TEXT")
+    private String content;
+    
+    @Column(name = "timestamp")
+    private Instant timestamp;
+    
+    @Column(name = "provider")
+    private String provider;
+    
+    @Column(name = "model")
+    private String model;
+    
+    @Column(name = "token_usage", columnDefinition = "jsonb")
+    private String tokenUsage;
+    
+    @Column(name = "metadata", columnDefinition = "jsonb")
+    private String metadata;
+    
+    // getters, setters, builder pattern...
+}
+
+// Supporting enums and classes
+public enum MessageType {
+    PROMPT, RESPONSE
+}
+
+public enum SessionStatus {
+    ACTIVE, COMPLETED, EXPIRED
+}
+
+// LLMResponse.java - for capturing responses from gateway
+@Data
+@Builder
+public class LLMResponse {
+    private String correlationId;
+    private String content;
+    private Instant timestamp;
+    private String provider;
+    private String model;
+    private TokenUsage tokenUsage;
+    private Map<String, Object> metadata;
+}
+
+// TokenUsage.java - for tracking token consumption
+@Data
+@Builder
+public class TokenUsage {
+    private Integer promptTokens;
+    private Integer completionTokens;
+    private Integer totalTokens;
+}
+```
+
+### Gateway Service Enhancements for Response Capture
+
+```java
+// Enhanced LLM Proxy Filter to capture responses
+@Component
+public class LLMProxyFilter implements GlobalFilter, Ordered {
+    
+    private final ConversationTrackingService conversationService;
+    private final ObjectMapper objectMapper;
+    
+    @Override
+    public Mono<Void> filter(ServerWebExchange exchange, GatewayFilterChain chain) {
+        String correlationId = generateCorrelationId();
+        exchange.getRequest().mutate()
+            .header("X-Correlation-ID", correlationId);
+        
+        // Capture the request (prompt)
+        return captureRequest(exchange, correlationId)
+            .then(chain.filter(exchange))
+            .then(captureResponse(exchange, correlationId));
+    }
+    
+    private Mono<Void> captureRequest(ServerWebExchange exchange, String correlationId) {
+        return exchange.getRequest().getBody()
+            .cast(DataBuffer.class)
+            .collectList()
+            .map(dataBuffers -> {
+                String requestBody = extractBody(dataBuffers);
+                
+                // Extract prompt from request body
+                String promptContent = extractPromptFromRequest(requestBody);
+                
+                // Create prompt usage record
+                PromptUsage usage = PromptUsage.builder()
+                    .correlationId(correlationId)
+                    .promptContent(promptContent)
+                    .timestamp(Instant.now())
+                    .provider(extractProvider(exchange))
+                    .metadata(extractMetadata(exchange))
+                    .build();
+                
+                // Track the prompt in conversation
+                conversationService.trackPrompt(usage);
+                
+                return requestBody;
+            })
+            .then();
+    }
+    
+    private Mono<Void> captureResponse(ServerWebExchange exchange, String correlationId) {
+        ServerHttpResponse originalResponse = exchange.getResponse();
+        DataBufferFactory bufferFactory = originalResponse.bufferFactory();
+        
+        ServerHttpResponseDecorator decoratedResponse = new ServerHttpResponseDecorator(originalResponse) {
+            @Override
+            public Mono<Void> writeWith(Publisher<? extends DataBuffer> body) {
+                if (body instanceof Flux) {
+                    Flux<? extends DataBuffer> fluxBody = (Flux<? extends DataBuffer>) body;
+                    
+                    return super.writeWith(fluxBody.map(dataBuffer -> {
+                        // Extract response content
+                        String responseContent = extractResponseContent(dataBuffer);
+                        
+                        // Create LLM response record
+                        LLMResponse llmResponse = LLMResponse.builder()
+                            .correlationId(correlationId)
+                            .content(responseContent)
+                            .timestamp(Instant.now())
+                            .provider(extractProvider(exchange))
+                            .model(extractModel(responseContent))
+                            .tokenUsage(extractTokenUsage(responseContent))
+                            .metadata(extractResponseMetadata(exchange))
+                            .build();
+                        
+                        // Track the response in conversation
+                        conversationService.trackResponse(llmResponse);
+                        
+                        return dataBuffer;
+                    }));
+                }
+                return super.writeWith(body);
+            }
+        };
+        
+        return chain.filter(exchange.mutate().response(decoratedResponse).build());
+    }
+    
+    private String extractPromptFromRequest(String requestBody) {
+        try {
+            JsonNode jsonNode = objectMapper.readTree(requestBody);
+            
+            // Handle different LLM provider request formats
+            if (jsonNode.has("messages")) {
+                // OpenAI/Anthropic format
+                JsonNode messages = jsonNode.get("messages");
+                if (messages.isArray() && messages.size() > 0) {
+                    JsonNode lastMessage = messages.get(messages.size() - 1);
+                    return lastMessage.get("content").asText();
+                }
+            } else if (jsonNode.has("prompt")) {
+                // Direct prompt format
+                return jsonNode.get("prompt").asText();
+            }
+            
+            return requestBody; // Fallback to full body
+        } catch (Exception e) {
+            log.warn("Failed to extract prompt from request: {}", e.getMessage());
+            return requestBody;
+        }
+    }
+    
+    private String extractResponseContent(DataBuffer dataBuffer) {
+        try {
+            byte[] bytes = new byte[dataBuffer.readableByteCount()];
+            dataBuffer.read(bytes);
+            String responseBody = new String(bytes, StandardCharsets.UTF_8);
+            
+            JsonNode jsonNode = objectMapper.readTree(responseBody);
+            
+            // Handle different LLM provider response formats
+            if (jsonNode.has("choices")) {
+                // OpenAI format
+                JsonNode choices = jsonNode.get("choices");
+                if (choices.isArray() && choices.size() > 0) {
+                    JsonNode firstChoice = choices.get(0);
+                    if (firstChoice.has("message")) {
+                        return firstChoice.get("message").get("content").asText();
+                    } else if (firstChoice.has("text")) {
+                        return firstChoice.get("text").asText();
+                    }
+                }
+            } else if (jsonNode.has("content")) {
+                // Anthropic format
+                JsonNode content = jsonNode.get("content");
+                if (content.isArray() && content.size() > 0) {
+                    return content.get(0).get("text").asText();
+                }
+            }
+            
+            return responseBody; // Fallback to full response
+        } catch (Exception e) {
+            log.warn("Failed to extract response content: {}", e.getMessage());
+            return ""; // Return empty string on error
+        }
+    }
+    
+    private TokenUsage extractTokenUsage(String responseContent) {
+        try {
+            JsonNode jsonNode = objectMapper.readTree(responseContent);
+            
+            if (jsonNode.has("usage")) {
+                JsonNode usage = jsonNode.get("usage");
+                return TokenUsage.builder()
+                    .promptTokens(usage.get("prompt_tokens").asInt())
+                    .completionTokens(usage.get("completion_tokens").asInt())
+                    .totalTokens(usage.get("total_tokens").asInt())
+                    .build();
+            }
+        } catch (Exception e) {
+            log.warn("Failed to extract token usage: {}", e.getMessage());
+        }
+        
+        return null;
+    }
+    
+    private String generateCorrelationId() {
+        return UUID.randomUUID().toString();
+    }
+    
+    @Override
+    public int getOrder() {
+        return -1; // High priority to capture all requests/responses
+    }
+}
 ```
 
 ### Configuration
@@ -202,6 +567,9 @@ codepromptu:
     analytics:
       batch-size: 1000
       retention-days: 365
+    conversation:
+      session-timeout-minutes: 30
+      max-messages-per-session: 100
 ```
 
 ---
@@ -460,6 +828,165 @@ export const TemplateVisualization: React.FC = () => {
 };
 ```
 
+#### D. Conversation Viewer
+**Purpose**: Display full conversations with prompts and responses
+
+```typescript
+// components/ConversationViewer.tsx
+export const ConversationViewer: React.FC = () => {
+  const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const { data: sessions } = useGetConversationSessionsQuery();
+  const { data: messages } = useGetConversationMessagesQuery(
+    selectedSession || '',
+    { skip: !selectedSession }
+  );
+
+  return (
+    <Grid container spacing={3}>
+      <Grid item xs={12} md={4}>
+        <ConversationSessionList
+          sessions={sessions || []}
+          selectedSession={selectedSession}
+          onSessionSelect={setSelectedSession}
+        />
+      </Grid>
+      
+      <Grid item xs={12} md={8}>
+        {selectedSession ? (
+          <ConversationMessages
+            messages={messages || []}
+            sessionId={selectedSession}
+          />
+        ) : (
+          <Box display="flex" justifyContent="center" alignItems="center" height="400px">
+            <Typography variant="h6" color="textSecondary">
+              Select a conversation to view messages
+            </Typography>
+          </Box>
+        )}
+      </Grid>
+    </Grid>
+  );
+};
+
+// components/ConversationMessages.tsx
+export const ConversationMessages: React.FC<{
+  messages: ConversationMessage[];
+  sessionId: string;
+}> = ({ messages, sessionId }) => {
+  return (
+    <Paper elevation={1} sx={{ height: '600px', overflow: 'auto', p: 2 }}>
+      <Box display="flex" justifyContent="between" alignItems="center" mb={2}>
+        <Typography variant="h6">Conversation Messages</Typography>
+        <Chip label={`${messages.length} messages`} size="small" />
+      </Box>
+      
+      <List>
+        {messages.map((message, index) => (
+          <React.Fragment key={message.id}>
+            <ListItem alignItems="flex-start">
+              <ListItemAvatar>
+                <Avatar sx={{ 
+                  bgcolor: message.messageType === 'PROMPT' ? 'primary.main' : 'secondary.main' 
+                }}>
+                  {message.messageType === 'PROMPT' ? '👤' : '🤖'}
+                </Avatar>
+              </ListItemAvatar>
+              
+              <ListItemText
+                primary={
+                  <Box display="flex" justifyContent="space-between" alignItems="center">
+                    <Typography variant="subtitle2">
+                      {message.messageType === 'PROMPT' ? 'User' : `${message.provider} (${message.model})`}
+                    </Typography>
+                    <Typography variant="caption" color="textSecondary">
+                      {formatTimestamp(message.timestamp)}
+                    </Typography>
+                  </Box>
+                }
+                secondary={
+                  <Box mt={1}>
+                    <Typography variant="body2" component="div">
+                      <ReactMarkdown>{message.content}</ReactMarkdown>
+                    </Typography>
+                    
+                    {message.tokenUsage && (
+                      <Box mt={1}>
+                        <Chip 
+                          label={`${JSON.parse(message.tokenUsage).totalTokens} tokens`}
+                          size="small"
+                          variant="outlined"
+                        />
+                      </Box>
+                    )}
+                  </Box>
+                }
+              />
+            </ListItem>
+            
+            {index < messages.length - 1 && <Divider variant="inset" component="li" />}
+          </React.Fragment>
+        ))}
+      </List>
+    </Paper>
+  );
+};
+
+// components/ConversationSessionList.tsx
+export const ConversationSessionList: React.FC<{
+  sessions: ConversationSession[];
+  selectedSession: string | null;
+  onSessionSelect: (sessionId: string) => void;
+}> = ({ sessions, selectedSession, onSessionSelect }) => {
+  return (
+    <Paper elevation={1} sx={{ height: '600px', overflow: 'auto' }}>
+      <Box p={2} borderBottom={1} borderColor="divider">
+        <Typography variant="h6">Conversations</Typography>
+        <Typography variant="body2" color="textSecondary">
+          {sessions.length} active sessions
+        </Typography>
+      </Box>
+      
+      <List>
+        {sessions.map((session) => (
+          <ListItem
+            key={session.id}
+            button
+            selected={selectedSession === session.id}
+            onClick={() => onSessionSelect(session.id)}
+          >
+            <ListItemText
+              primary={
+                <Box display="flex" justifyContent="space-between">
+                  <Typography variant="subtitle2">
+                    Session {session.id.substring(0, 8)}...
+                  </Typography>
+                  <Chip 
+                    label={session.status}
+                    size="small"
+                    color={session.status === 'ACTIVE' ? 'success' : 'default'}
+                  />
+                </Box>
+              }
+              secondary={
+                <Box>
+                  <Typography variant="body2" color="textSecondary">
+                    {session.messageCount} messages • {session.totalTokens} tokens
+                  </Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    Started: {formatTimestamp(session.sessionStart)}
+                  </Typography>
+                </Box>
+              }
+            />
+          </ListItem>
+        ))}
+      </List>
+    </Paper>
+  );
+};
+```
+
 ### API Integration Layer
 
 ```typescript
@@ -476,7 +1003,7 @@ export const promptApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ['Prompt', 'Template', 'Analytics'],
+  tagTypes: ['Prompt', 'Template', 'Analytics', 'Conversation'],
   endpoints: (builder) => ({
     getPrompts: builder.query<PromptsResponse, PromptsRequest>({
       query: (params) => ({
@@ -502,8 +1029,86 @@ export const promptApi = createApi({
       }),
       providesTags: ['Analytics'],
     }),
+    
+    // Conversation endpoints
+    getConversationSessions: builder.query<ConversationSession[], void>({
+      query: () => 'conversations/sessions',
+      providesTags: ['Conversation'],
+    }),
+    
+    getConversationMessages: builder.query<ConversationMessage[], string>({
+      query: (sessionId) => `conversations/sessions/${sessionId}/messages`,
+      providesTags: (result, error, sessionId) => [
+        { type: 'Conversation', id: sessionId }
+      ],
+    }),
+    
+    getConversationAnalytics: builder.query<ConversationAnalytics, ConversationAnalyticsRequest>({
+      query: (params) => ({
+        url: 'conversations/analytics',
+        params,
+      }),
+      providesTags: ['Analytics'],
+    }),
   }),
 });
+
+// Export hooks for components
+export const {
+  useGetPromptsQuery,
+  useCreatePromptMutation,
+  useGetAnalyticsQuery,
+  useGetConversationSessionsQuery,
+  useGetConversationMessagesQuery,
+  useGetConversationAnalyticsQuery,
+} = promptApi;
+```
+
+### Enhanced Success Criteria for Full Conversation Recovery
+
+```typescript
+// Integration test for full conversation recovery
+@Test
+void shouldRecoverFullConversationWithResponses() {
+    // 1. Send a prompt through gateway
+    String promptContent = "Explain microservices architecture";
+    String correlationId = sendPromptThroughGateway(promptContent);
+    
+    // 2. Simulate LLM response
+    String responseContent = "Microservices architecture is a design pattern...";
+    simulateLLMResponse(correlationId, responseContent);
+    
+    // 3. Wait for conversation tracking to complete
+    await().atMost(10, SECONDS)
+        .until(() -> conversationExists(correlationId));
+    
+    // 4. Retrieve full conversation
+    ConversationSession session = getConversationByCorrelationId(correlationId);
+    List<ConversationMessage> messages = getConversationMessages(session.getId());
+    
+    // 5. Verify both prompt and response are captured
+    assertThat(messages).hasSize(2);
+    
+    ConversationMessage promptMessage = messages.get(0);
+    assertThat(promptMessage.getMessageType()).isEqualTo(MessageType.PROMPT);
+    assertThat(promptMessage.getContent()).isEqualTo(promptContent);
+    
+    ConversationMessage responseMessage = messages.get(1);
+    assertThat(responseMessage.getMessageType()).isEqualTo(MessageType.RESPONSE);
+    assertThat(responseMessage.getContent()).isEqualTo(responseContent);
+    
+    // 6. Verify conversation can be fully recovered
+    String recoveredConversation = reconstructConversation(messages);
+    assertThat(recoveredConversation).contains(promptContent);
+    assertThat(recoveredConversation).contains(responseContent);
+    
+    // 7. Verify UI can display the conversation
+    String conversationHtml = renderConversationInUI(session.getId());
+    assertThat(conversationHtml).contains("👤"); // User avatar
+    assertThat(conversationHtml).contains("🤖"); // Bot avatar
+    assertThat(conversationHtml).contains(promptContent);
+    assertThat(conversationHtml).contains(responseContent);
+}
 ```
 
 ---
