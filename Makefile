@@ -2,6 +2,8 @@
 # Spring Boot microservices example implementation
 
 SHELL := /bin/zsh
+PATH := /opt/homebrew/bin:/usr/local/bin:$(PATH)
+export PATH
 
 # Directories
 SRC_DIR := src
